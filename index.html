@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Global Oil Dependency Atlas</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --surface: #0d1117;
+    --surface2: #161b22;
+    --border: #21262d;
+    --text: #e6edf3;
+    --text-muted: #7d8590;
+    --accent: #f0a500;
+    --accent2: #e05c1a;
+    --accent3: #1af0a0;
+    --red: #ff4444;
+    --green: #00d084;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    z-index: 1000;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .logo span { color: var(--text-muted); font-size: 13px; font-family: 'DM Mono', monospace; letter-spacing: 0; margin-left: 8px; vertical-align: middle; }
+
+  .divider { width: 1px; height: 28px; background: var(--border); }
+
+  .select-wrapper {
+    position: relative;
+    flex: 1;
+    max-width: 340px;
+  }
+
+  .select-wrapper::before {
+    content: '⬡';
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  select {
+    width: 100%;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px 8px 34px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    appearance: none;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  select:hover, select:focus { border-color: var(--accent); }
+
+  .legend-inline {
+    display: flex;
+    gap: 16px;
+    margin-left: auto;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ─── MAIN LAYOUT ─── */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar {
+    width: 300px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    flex-shrink: 0;
+    z-index: 500;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .country-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 1px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .country-stats {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+  }
+
+  .stat-box {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+
+  .stat-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    color: var(--accent);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  .sources-list { padding: 12px 16px; }
+
+  .source-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .source-item:last-child { border-bottom: none; }
+
+  .source-bar-wrap {
+    flex: 1;
+  }
+
+  .source-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .source-pct {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .source-bar-bg {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .source-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease;
+  }
+
+  .source-tag {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  .tag-import { background: rgba(240,165,0,0.15); color: var(--accent); }
+  .tag-domestic { background: rgba(26,240,160,0.15); color: var(--accent3); }
+  .tag-refine { background: rgba(224,92,26,0.15); color: var(--accent2); }
+
+  .empty-state {
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .empty-state .icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
+
+  /* ─── MAP ─── */
+  #map {
+    flex: 1;
+    background: #0a1628;
+  }
+
+  /* Leaflet overrides */
+  .leaflet-container { background: #0a1628 !important; }
+
+  .leaflet-popup-content-wrapper {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+    color: var(--text) !important;
+    font-family: 'DM Sans', sans-serif !important;
+    padding: 0 !important;
+  }
+
+  .leaflet-popup-content {
+    margin: 0 !important;
+    width: auto !important;
+  }
+
+  .leaflet-popup-tip { background: var(--surface) !important; }
+
+  .popup-inner {
+    padding: 14px 16px;
+    min-width: 220px;
+  }
+
+  .popup-flag { font-size: 22px; margin-bottom: 4px; }
+
+  .popup-country {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 1px;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .popup-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: 12px;
+  }
+
+  .popup-label { color: var(--text-muted); }
+
+  .popup-value {
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  .popup-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 8px 0;
+  }
+
+  .popup-commodity {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* ─── TOOLTIP ─── */
+  .leaflet-tooltip {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    font-family: 'DM Mono', monospace !important;
+    font-size: 11px !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+  }
+
+  .leaflet-tooltip::before { display: none !important; }
+
+  /* ─── BOTTOM BAR ─── */
+  .bottom-bar {
+    height: 32px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    z-index: 1000;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    background: var(--accent3);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .pulse-ring {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* color scale */
+  .scale-wrap {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .scale-bar {
+    width: 100px;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #1a3a5c, #f0a500, #e05c1a, #ff2244);
+  }
+
+  .scale-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+
+  /* Loading overlay */
+  #loading {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    transition: opacity 0.4s;
+  }
+
+  #loading .logo-big {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  #loading .sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    margin-bottom: 32px;
+  }
+
+  .loader {
+    width: 200px;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .loader-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 1px;
+    animation: load 1.5s ease-in-out forwards;
+  }
+
+  @keyframes load {
+    0% { width: 0; }
+    100% { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="logo-big">PETRO ATLAS</div>
+  <div class="sub">GLOBAL OIL DEPENDENCY VISUALIZATION</div>
+  <div class="loader"><div class="loader-fill"></div></div>
+</div>
+
+<header>
+  <div class="logo">PETRO ATLAS <span>v2.0</span></div>
+  <div class="divider"></div>
+  <div class="select-wrapper">
+    <select id="countrySelect" onchange="selectCountry(this.value)">
+      <option value="">— Select a country to explore —</option>
+    </select>
+  </div>
+  <div class="legend-inline">
+    <div class="legend-item"><div class="legend-dot" style="background:#1af0a0"></div>Domestic</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f0a500"></div>Import &lt;20%</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e05c1a"></div>Import 20–50%</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ff2244"></div>Import &gt;50%</div>
+  </div>
+</header>
+
+<div class="main">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">Oil Supply Breakdown</div>
+    <div id="sidebarContent">
+      <div class="empty-state">
+        <div class="icon">🛢️</div>
+        Select a country from the dropdown above to see its complete oil dependency profile and supplier nations highlighted on the map.
+      </div>
+    </div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<div class="bottom-bar">
+  <div class="pulse-ring"><div class="status-dot"></div> LIVE DATA VIEW</div>
+  <span>|</span>
+  <span>SOURCE: IEA / EIA / BP Statistical Review 2023</span>
+  <span>|</span>
+  <span>Hover supplier countries for transit details</span>
+  <div class="scale-wrap">
+    <span>DEPENDENCY SCALE</span>
+    <div>
+      <div class="scale-bar"></div>
+    </div>
+    <span>LOW → HIGH</span>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DATA: Top 20 oil-consuming countries with full supply mix
+// Sources: IEA 2023, EIA, BP Statistical Review 2023
+// ═══════════════════════════════════════════════════════════
+const OIL_DATA = {
+  "United States": {
+    flag: "🇺🇸", consumption: "20.4 mb/d", flag_code: "US",
+    sources: [
+      { country: "United States", pct: 72, type: "domestic", commodity: "Crude oil, shale/tight oil, NGLs", days: 0 },
+      { country: "Canada", pct: 16, type: "import", commodity: "Crude oil, Alberta oil sands, synthetic crude", days: 3 },
+      { country: "Mexico", pct: 5, type: "import", commodity: "Maya heavy crude, offshore crude", days: 4 },
+      { country: "Saudi Arabia", pct: 4, type: "import", commodity: "Arab Light / Extra Light crude", days: 28 },
+      { country: "Iraq", pct: 3, type: "import", commodity: "Basra Light / Basra Heavy crude", days: 32 },
+    ]
+  },
+  "China": {
+    flag: "🇨🇳", consumption: "15.6 mb/d",
+    sources: [
+      { country: "China", pct: 32, type: "domestic", commodity: "Daqing crude, Shengli crude, offshore blocks", days: 0 },
+      { country: "Russia", pct: 22, type: "import", commodity: "ESPO blend, Urals crude (pipeline + tanker)", days: 7 },
+      { country: "Saudi Arabia", pct: 16, type: "import", commodity: "Arab Light / Heavy / Extra Light crude", days: 18 },
+      { country: "Iraq", pct: 9, type: "import", commodity: "Basra Light crude", days: 20 },
+      { country: "United Arab Emirates", pct: 8, type: "import", commodity: "Murban crude, Das Blend", days: 15 },
+      { country: "Angola", pct: 5, type: "import", commodity: "Girassol, Dalia, Pazflor crude", days: 25 },
+      { country: "Kuwait", pct: 4, type: "import", commodity: "Kuwait Export Crude (KEC)", days: 16 },
+      { country: "Oman", pct: 4, type: "import", commodity: "Oman Blend crude", days: 12 },
+    ]
+  },
+  "India": {
+    flag: "🇮🇳", consumption: "5.3 mb/d",
+    sources: [
+      { country: "India", pct: 15, type: "domestic", commodity: "Mumbai High crude, Rajasthan onshore", days: 0 },
+      { country: "Iraq", pct: 22, type: "import", commodity: "Basra Light / Basra Heavy crude", days: 12 },
+      { country: "Russia", pct: 21, type: "import", commodity: "Urals blend (discounted), ESPO blend", days: 16 },
+      { country: "Saudi Arabia", pct: 16, type: "import", commodity: "Arab Light / Arab Heavy crude", days: 10 },
+      { country: "United Arab Emirates", pct: 10, type: "import", commodity: "Murban, Upper Zakum crude", days: 8 },
+      { country: "United States", pct: 7, type: "import", commodity: "WTI Midland, Mars Blend", days: 22 },
+      { country: "Kuwait", pct: 5, type: "import", commodity: "Kuwait Export Crude", days: 9 },
+      { country: "Nigeria", pct: 4, type: "import", commodity: "Bonny Light, Forcados crude", days: 20 },
+    ]
+  },
+  "Japan": {
+    flag: "🇯🇵", consumption: "3.4 mb/d",
+    sources: [
+      { country: "Saudi Arabia", pct: 38, type: "import", commodity: "Arab Light / Arab Extra Light crude", days: 18 },
+      { country: "United Arab Emirates", pct: 29, type: "import", commodity: "Murban, Das Blend, Upper Zakum", days: 16 },
+      { country: "Kuwait", pct: 9, type: "import", commodity: "Kuwait Export Crude", days: 17 },
+      { country: "Russia", pct: 8, type: "import", commodity: "Sokol crude, ESPO blend", days: 8 },
+      { country: "Qatar", pct: 7, type: "import", commodity: "Qatar Marine, Al-Shaheen crude", days: 16 },
+      { country: "Iraq", pct: 5, type: "import", commodity: "Basra Light crude", days: 19 },
+      { country: "United States", pct: 4, type: "import", commodity: "WTI Midland crude", days: 14 },
+    ]
+  },
+  "Saudi Arabia": {
+    flag: "🇸🇦", consumption: "3.9 mb/d",
+    sources: [
+      { country: "Saudi Arabia", pct: 100, type: "domestic", commodity: "Arab Light, Arab Heavy, Arab Extra Light, Berri crude", days: 0 },
+    ]
+  },
+  "Russia": {
+    flag: "🇷🇺", consumption: "3.7 mb/d",
+    sources: [
+      { country: "Russia", pct: 100, type: "domestic", commodity: "Urals blend, ESPO, Siberian Light, Sokol crude", days: 0 },
+    ]
+  },
+  "South Korea": {
+    flag: "🇰🇷", consumption: "2.8 mb/d",
+    sources: [
+      { country: "Saudi Arabia", pct: 28, type: "import", commodity: "Arab Light / Arab Medium crude", days: 17 },
+      { country: "United States", pct: 20, type: "import", commodity: "WTI Midland, Eagle Ford crude", days: 14 },
+      { country: "Iraq", pct: 15, type: "import", commodity: "Basra Light / Basra Heavy crude", days: 18 },
+      { country: "United Arab Emirates", pct: 13, type: "import", commodity: "Murban crude, Das Blend", days: 15 },
+      { country: "Kuwait", pct: 8, type: "import", commodity: "Kuwait Export Crude", days: 17 },
+      { country: "Russia", pct: 7, type: "import", commodity: "ESPO blend crude", days: 6 },
+      { country: "Qatar", pct: 5, type: "import", commodity: "Qatar Marine crude", days: 15 },
+      { country: "Australia", pct: 4, type: "import", commodity: "Pyrenees, Van Gogh crude", days: 9 },
+    ]
+  },
+  "Brazil": {
+    flag: "🇧🇷", consumption: "3.1 mb/d",
+    sources: [
+      { country: "Brazil", pct: 88, type: "domestic", commodity: "Pre-salt crude (Lula, Búzios fields), Roncador", days: 0 },
+      { country: "United States", pct: 6, type: "import", commodity: "WTI crude, condensate", days: 5 },
+      { country: "Nigeria", pct: 3, type: "import", commodity: "Bonny Light crude", days: 12 },
+      { country: "Saudi Arabia", pct: 3, type: "import", commodity: "Arab Light crude", days: 18 },
+    ]
+  },
+  "Germany": {
+    flag: "🇩🇪", consumption: "2.1 mb/d",
+    sources: [
+      { country: "Germany", pct: 3, type: "domestic", commodity: "North German Basin crude (minor)", days: 0 },
+      { country: "United States", pct: 16, type: "import", commodity: "WTI Midland, Eagle Ford crude", days: 12 },
+      { country: "Norway", pct: 15, type: "import", commodity: "Ekofisk, Troll, Oseberg crude (North Sea)", days: 4 },
+      { country: "Kazakhstan", pct: 14, type: "import", commodity: "CPC Blend crude (Caspian pipeline)", days: 10 },
+      { country: "Russia", pct: 12, type: "import", commodity: "Urals crude (Druzhba pipeline - reduced)", days: 5 },
+      { country: "United Kingdom", pct: 10, type: "import", commodity: "Forties, Brent crude (North Sea)", days: 3 },
+      { country: "Saudi Arabia", pct: 9, type: "import", commodity: "Arab Light crude", days: 14 },
+      { country: "Iraq", pct: 8, type: "import", commodity: "Basra Light crude", days: 13 },
+      { country: "Libya", pct: 7, type: "import", commodity: "Es Sider, Brega, Sharara crude", days: 6 },
+      { country: "Nigeria", pct: 6, type: "import", commodity: "Bonny Light, Qua Iboe crude", days: 11 },
+    ]
+  },
+  "Canada": {
+    flag: "🇨🇦", consumption: "2.5 mb/d",
+    sources: [
+      { country: "Canada", pct: 95, type: "domestic", commodity: "Alberta oil sands, synthetic crude, Montney tight oil", days: 0 },
+      { country: "United States", pct: 3, type: "import", commodity: "WTI crude (Midwest refineries)", days: 2 },
+      { country: "Saudi Arabia", pct: 2, type: "import", commodity: "Arab Light (East Coast refineries)", days: 20 },
+    ]
+  },
+  "France": {
+    flag: "🇫🇷", consumption: "1.6 mb/d",
+    sources: [
+      { country: "Kazakhstan", pct: 20, type: "import", commodity: "CPC Blend crude", days: 10 },
+      { country: "Saudi Arabia", pct: 16, type: "import", commodity: "Arab Light / Arab Extra Light crude", days: 14 },
+      { country: "Libya", pct: 15, type: "import", commodity: "Es Sider, Bouri, Sharara crude", days: 5 },
+      { country: "Iraq", pct: 13, type: "import", commodity: "Basra Light crude", days: 13 },
+      { country: "Nigeria", pct: 12, type: "import", commodity: "Bonny Light, Forcados crude", days: 9 },
+      { country: "Norway", pct: 11, type: "import", commodity: "Ekofisk, Norne crude (North Sea)", days: 3 },
+      { country: "United States", pct: 8, type: "import", commodity: "WTI Midland crude", days: 10 },
+      { country: "United Kingdom", pct: 5, type: "import", commodity: "Brent, Forties crude (North Sea)", days: 2 },
+    ]
+  },
+  "Iran": {
+    flag: "🇮🇷", consumption: "2.1 mb/d",
+    sources: [
+      { country: "Iran", pct: 100, type: "domestic", commodity: "Iranian Light, Iranian Heavy, Forozan Blend crude", days: 0 },
+    ]
+  },
+  "Indonesia": {
+    flag: "🇮🇩", consumption: "1.8 mb/d",
+    sources: [
+      { country: "Indonesia", pct: 42, type: "domestic", commodity: "Minas, Duri, Widuri crude oil", days: 0 },
+      { country: "Saudi Arabia", pct: 25, type: "import", commodity: "Arab Light / Arab Medium crude", days: 12 },
+      { country: "Nigeria", pct: 12, type: "import", commodity: "Bonny Light crude", days: 22 },
+      { country: "Australia", pct: 9, type: "import", commodity: "Van Gogh, Pyrenees, Montara crude", days: 6 },
+      { country: "United Arab Emirates", pct: 7, type: "import", commodity: "Murban crude", days: 11 },
+      { country: "Iraq", pct: 5, type: "import", commodity: "Basra Light crude", days: 14 },
+    ]
+  },
+  "Mexico": {
+    flag: "🇲🇽", consumption: "1.7 mb/d",
+    sources: [
+      { country: "Mexico", pct: 78, type: "domestic", commodity: "Maya heavy crude, Olmeca, Isthmus crude (PEMEX)", days: 0 },
+      { country: "United States", pct: 20, type: "import", commodity: "WTI crude, condensate, light crude", days: 3 },
+      { country: "Nigeria", pct: 2, type: "import", commodity: "Bonny Light crude", days: 18 },
+    ]
+  },
+  "United Kingdom": {
+    flag: "🇬🇧", consumption: "1.5 mb/d",
+    sources: [
+      { country: "United Kingdom", pct: 40, type: "domestic", commodity: "Brent, Forties, Oseberg, Ekofisk (BFOE) blend", days: 0 },
+      { country: "Norway", pct: 27, type: "import", commodity: "Norne, Ekofisk, Troll crude (North Sea pipeline)", days: 2 },
+      { country: "United States", pct: 12, type: "import", commodity: "WTI Midland crude", days: 9 },
+      { country: "Nigeria", pct: 9, type: "import", commodity: "Bonny Light, Qua Iboe crude", days: 8 },
+      { country: "Libya", pct: 7, type: "import", commodity: "Es Sider, Sharara crude", days: 5 },
+      { country: "Saudi Arabia", pct: 5, type: "import", commodity: "Arab Light crude", days: 13 },
+    ]
+  },
+  "Italy": {
+    flag: "🇮🇹", consumption: "1.3 mb/d",
+    sources: [
+      { country: "Italy", pct: 5, type: "domestic", commodity: "Val d'Agri crude (Basilicata region)", days: 0 },
+      { country: "Libya", pct: 24, type: "import", commodity: "Es Sider, Brega, Sharara crude (Greenstream pipeline)", days: 4 },
+      { country: "Iraq", pct: 20, type: "import", commodity: "Basra Light / Basra Heavy crude", days: 11 },
+      { country: "Saudi Arabia", pct: 15, type: "import", commodity: "Arab Light crude", days: 13 },
+      { country: "Kazakhstan", pct: 13, type: "import", commodity: "CPC Blend crude", days: 9 },
+      { country: "Nigeria", pct: 10, type: "import", commodity: "Bonny Light, Escravos crude", days: 10 },
+      { country: "Azerbaijan", pct: 8, type: "import", commodity: "Azeri Light crude (BTC pipeline)", days: 7 },
+      { country: "Russia", pct: 5, type: "import", commodity: "Urals crude (Transalpine pipeline - reduced)", days: 6 },
+    ]
+  },
+  "Spain": {
+    flag: "🇪🇸", consumption: "1.2 mb/d",
+    sources: [
+      { country: "United States", pct: 18, type: "import", commodity: "WTI Midland, Mars crude", days: 11 },
+      { country: "Saudi Arabia", pct: 16, type: "import", commodity: "Arab Light crude", days: 13 },
+      { country: "Nigeria", pct: 15, type: "import", commodity: "Bonny Light, Forcados crude", days: 9 },
+      { country: "Libya", pct: 14, type: "import", commodity: "Es Sider crude", days: 4 },
+      { country: "Kazakhstan", pct: 12, type: "import", commodity: "CPC Blend crude", days: 10 },
+      { country: "Iraq", pct: 11, type: "import", commodity: "Basra Light crude", days: 12 },
+      { country: "Mexico", pct: 8, type: "import", commodity: "Maya heavy crude", days: 13 },
+      { country: "Angola", pct: 6, type: "import", commodity: "Girassol crude", days: 14 },
+    ]
+  },
+  "Australia": {
+    flag: "🇦🇺", consumption: "1.1 mb/d",
+    sources: [
+      { country: "Australia", pct: 45, type: "domestic", commodity: "Van Gogh, Pyrenees, Montara, Cossack crude", days: 0 },
+      { country: "United States", pct: 18, type: "import", commodity: "WTI crude", days: 20 },
+      { country: "Malaysia", pct: 12, type: "import", commodity: "Miri Light, Labuan crude", days: 7 },
+      { country: "Nigeria", pct: 10, type: "import", commodity: "Bonny Light crude", days: 30 },
+      { country: "Saudi Arabia", pct: 9, type: "import", commodity: "Arab Light crude", days: 14 },
+      { country: "Indonesia", pct: 6, type: "import", commodity: "Minas, Arjuna crude", days: 5 },
+    ]
+  },
+  "Netherlands": {
+    flag: "🇳🇱", consumption: "0.9 mb/d",
+    sources: [
+      { country: "United States", pct: 20, type: "import", commodity: "WTI Midland crude (Rotterdam hub)", days: 10 },
+      { country: "Kazakhstan", pct: 18, type: "import", commodity: "CPC Blend crude (Rotterdam hub)", days: 10 },
+      { country: "Norway", pct: 16, type: "import", commodity: "Ekofisk, Troll, Statfjord crude", days: 3 },
+      { country: "Nigeria", pct: 14, type: "import", commodity: "Bonny Light, Forcados crude", days: 9 },
+      { country: "United Kingdom", pct: 10, type: "import", commodity: "Forties, Brent crude", days: 2 },
+      { country: "Russia", pct: 8, type: "import", commodity: "Urals crude (reduced post-2022)", days: 5 },
+      { country: "Iraq", pct: 8, type: "import", commodity: "Basra Light crude", days: 13 },
+      { country: "Saudi Arabia", pct: 6, type: "import", commodity: "Arab Light crude", days: 13 },
+    ]
+  },
+  "Turkey": {
+    flag: "🇹🇷", consumption: "0.9 mb/d",
+    sources: [
+      { country: "Russia", pct: 28, type: "import", commodity: "Urals crude, Siberian Light (BTC pipeline + tanker)", days: 5 },
+      { country: "Iraq", pct: 26, type: "import", commodity: "Kirkuk crude, Basra Light (Kirkuk-Ceyhan pipeline)", days: 3 },
+      { country: "Saudi Arabia", pct: 14, type: "import", commodity: "Arab Light crude", days: 10 },
+      { country: "Libya", pct: 11, type: "import", commodity: "Es Sider, Brega crude", days: 4 },
+      { country: "Kazakhstan", pct: 10, type: "import", commodity: "CPC Blend crude", days: 7 },
+      { country: "Azerbaijan", pct: 8, type: "import", commodity: "Azeri Light crude (BTC pipeline)", days: 2 },
+      { country: "Nigeria", pct: 3, type: "import", commodity: "Bonny Light crude", days: 15 },
+    ]
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+// COORDINATES for supplier/domestic countries
+// ═══════════════════════════════════════════════════════════
+const COORDS = {
+  "United States": [37.09, -95.71],
+  "China": [35.86, 104.19],
+  "India": [20.59, 78.96],
+  "Japan": [36.2, 138.25],
+  "Saudi Arabia": [23.88, 45.07],
+  "Russia": [61.52, 105.31],
+  "South Korea": [35.9, 127.77],
+  "Brazil": [-14.24, -51.93],
+  "Germany": [51.16, 10.45],
+  "Canada": [56.13, -106.35],
+  "France": [46.23, 2.21],
+  "Iran": [32.43, 53.69],
+  "Indonesia": [-0.79, 113.92],
+  "Mexico": [23.63, -102.55],
+  "United Kingdom": [55.38, -3.44],
+  "Italy": [41.87, 12.57],
+  "Spain": [40.46, -3.75],
+  "Australia": [-25.27, 133.78],
+  "Netherlands": [52.13, 5.29],
+  "Turkey": [38.96, 35.24],
+  "Iraq": [33.22, 43.68],
+  "Norway": [60.47, 8.47],
+  "Nigeria": [9.08, 8.68],
+  "Angola": [-11.2, 17.87],
+  "Libya": [26.33, 17.23],
+  "Kazakhstan": [48.02, 66.92],
+  "Kuwait": [29.31, 47.48],
+  "United Arab Emirates": [23.42, 53.85],
+  "Qatar": [25.35, 51.18],
+  "Oman": [21.51, 55.92],
+  "Azerbaijan": [40.14, 47.58],
+  "Malaysia": [4.21, 108.0],
+  "Nigeria": [9.08, 8.68]
+};
+
+// Color for source percentage
+function pctColor(pct, type) {
+  if (type === "domestic") return "#1af0a0";
+  if (pct >= 50) return "#ff2244";
+  if (pct >= 20) return "#e05c1a";
+  return "#f0a500";
+}
+
+// ─── MAP INIT ───────────────────────────────────────────
+let map = L.map('map', {
+  center: [20, 10],
+  zoom: 2,
+  minZoom: 1,
+  maxZoom: 10,
+  zoomControl: false,
+  worldCopyJump: false
+});
+
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+// Dark Carto basemap
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://carto.com">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(map);
+
+// Label layer on top
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+  attribution: '',
+  subdomains: 'abcd',
+  maxZoom: 19,
+  pane: 'shadowPane'
+}).addTo(map);
+
+// Active layers
+let activeCircles = [];
+let activeLines = [];
+let selectedCountry = null;
+
+// Populate dropdown
+const sel = document.getElementById('countrySelect');
+Object.keys(OIL_DATA).sort().forEach(c => {
+  const o = document.createElement('option');
+  o.value = c;
+  o.textContent = OIL_DATA[c].flag + '  ' + c;
+  sel.appendChild(o);
+});
+
+// ─── CLEAR MAP ──────────────────────────────────────────
+function clearMap() {
+  activeCircles.forEach(l => map.removeLayer(l));
+  activeLines.forEach(l => map.removeLayer(l));
+  activeCircles = [];
+  activeLines = [];
+}
+
+// ─── SELECT COUNTRY ─────────────────────────────────────
+function selectCountry(name) {
+  clearMap();
+  if (!name) {
+    document.getElementById('sidebarContent').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🛢️</div>
+        Select a country from the dropdown above to see its complete oil dependency profile.
+      </div>`;
+    return;
+  }
+
+  const data = OIL_DATA[name];
+  if (!data) return;
+
+  selectedCountry = name;
+  const consumerCoords = COORDS[name];
+
+  // Draw lines + circles for each source
+  data.sources.forEach((src, i) => {
+    const srcCoords = COORDS[src.country];
+    if (!srcCoords) return;
+
+    const color = pctColor(src.pct, src.type);
+    const radius = Math.max(8, src.pct * 1.2);
+
+    // Animated arc line (great circle approximated)
+    if (src.type === "import" && consumerCoords) {
+      const line = L.polyline([srcCoords, consumerCoords], {
+        color: color,
+        weight: Math.max(1, src.pct / 15),
+        opacity: 0.55,
+        dashArray: '6 8',
+        lineCap: 'round'
+      }).addTo(map);
+      activeLines.push(line);
+    }
+
+    // Circle marker
+    const circle = L.circleMarker(srcCoords, {
+      radius: radius,
+      fillColor: color,
+      color: color,
+      weight: 1.5,
+      opacity: 1,
+      fillOpacity: 0.35,
+    }).addTo(map);
+
+    const typeLabel = src.type === "domestic" ? "DOMESTIC PRODUCTION" : "IMPORTED";
+    const transitText = src.days === 0 ? "Domestic — no transit" : `~${src.days} days by tanker/pipeline`;
+
+    circle.bindTooltip(`
+      <strong>${src.country}</strong><br/>
+      ${src.pct}% of ${name}'s oil supply<br/>
+      <span style="color:#7d8590">${transitText}</span>
+    `, { sticky: true });
+
+    circle.bindPopup(`
+      <div class="popup-inner">
+        <div class="popup-country">${src.country}</div>
+        <div class="popup-row">
+          <span class="popup-label">Supply Share</span>
+          <span class="popup-value" style="color:${color}">${src.pct}%</span>
+        </div>
+        <div class="popup-row">
+          <span class="popup-label">Type</span>
+          <span class="popup-value" style="font-size:11px;color:#7d8590">${typeLabel}</span>
+        </div>
+        <hr class="popup-divider"/>
+        <div class="popup-row">
+          <span class="popup-label">Commodities</span>
+        </div>
+        <div class="popup-commodity">${src.commodity}</div>
+        <hr class="popup-divider"/>
+        <div class="popup-row">
+          <span class="popup-label">Transit to ${name}</span>
+          <span class="popup-value" style="font-size:11px">${transitText}</span>
+        </div>
+      </div>
+    `);
+
+    activeCircles.push(circle);
+  });
+
+  // Highlight the consumer country with a special marker
+  if (consumerCoords) {
+    const pulse = L.circleMarker(consumerCoords, {
+      radius: 14,
+      fillColor: '#ffffff',
+      color: '#ffffff',
+      weight: 2,
+      opacity: 0.9,
+      fillOpacity: 0.15,
+    }).addTo(map);
+
+    pulse.bindTooltip(`📍 ${name} — ${data.consumption} total consumption`, { sticky: true });
+    activeCircles.push(pulse);
+  }
+
+  // Fly to region
+  if (consumerCoords) {
+    map.flyTo(consumerCoords, Math.max(2, map.getZoom()), { duration: 1.2 });
+  }
+
+  // Update sidebar
+  updateSidebar(name, data);
+}
+
+// ─── SIDEBAR ────────────────────────────────────────────
+function updateSidebar(name, data) {
+  let sourcesHTML = data.sources.map(src => {
+    const color = pctColor(src.pct, src.type);
+    const tagClass = src.type === "domestic" ? "tag-domestic" : "tag-import";
+    const tagLabel = src.type === "domestic" ? "DOMESTIC" : "IMPORT";
+    const transitText = src.days === 0 ? "Domestic" : `${src.days}d transit`;
+    return `
+    <div class="source-item">
+      <div class="source-bar-wrap">
+        <div class="source-name">
+          <span>${src.country}</span>
+          <span class="source-pct" style="color:${color}">${src.pct}%</span>
+        </div>
+        <div class="source-bar-bg">
+          <div class="source-bar-fill" style="width:${src.pct}%;background:${color}"></div>
+        </div>
+        <div style="font-size:10px;color:#7d8590;margin-top:3px;font-family:'DM Mono',monospace">${src.commodity.length > 45 ? src.commodity.substring(0,42)+'…' : src.commodity}</div>
+      </div>
+      <div>
+        <div class="source-tag ${tagClass}">${tagLabel}</div>
+        <div style="font-size:9px;color:#7d8590;margin-top:4px;text-align:center;font-family:'DM Mono',monospace">${transitText}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const domesticPct = data.sources.filter(s => s.type === 'domestic').reduce((a, s) => a + s.pct, 0);
+  const importPct = 100 - domesticPct;
+
+  document.getElementById('sidebarContent').innerHTML = `
+    <div style="padding:16px 16px 4px">
+      <div class="country-name">${data.flag} ${name}</div>
+      <div class="country-stats">
+        <div class="stat-box">
+          <div class="stat-label">Consumption</div>
+          <div class="stat-value">${data.consumption}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Domestic</div>
+          <div class="stat-value" style="color:#1af0a0">${domesticPct}%</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Imported</div>
+          <div class="stat-value" style="color:#e05c1a">${importPct}%</div>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-header" style="margin-top:8px">Supply Sources (${data.sources.length} countries)</div>
+    <div class="sources-list">${sourcesHTML}</div>
+  `;
+}
+
+// ─── LOADING ────────────────────────────────────────────
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const loader = document.getElementById('loading');
+    loader.style.opacity = '0';
+    setTimeout(() => loader.style.display = 'none', 400);
+  }, 1600);
+});
+</script>
+</body>
+</html>
